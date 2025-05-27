@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glycolysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #simulation-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #canvas-container {
+            border: 1px solid #ccc;
+            margin: 0 auto;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .info-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+        }
+        .stats {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff0f5;
+            border-radius: 5px;
+        }
+        .requirements {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0fff0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fixed Glycolysis Simulation</h1>
+    
+    <div id="simulation-container">
+        <div id="controls">
+            <button id="add-glucose">Add Glucose</button>
+            <button id="add-atp">Add ATP</button>
+            <button id="add-nad">Add NAD+</button>
+            <button id="clear-all">Clear All</button>
+            <div>
+                <label for="sim-speed">Simulation Speed:</label>
+                <input type="range" id="sim-speed" min="1" max="10" value="5">
+            </div>
+            <div>
+                <label for="show-attraction">Show Attraction Zones:</label>
+                <input type="checkbox" id="show-attraction" checked>
+            </div>
+        </div>
+        
+        <div id="canvas-container">
+            <canvas id="simulation-canvas" width="800" height="500"></canvas>
+        </div>
+        
+        <div class="requirements">
+            <h3>Current Inputs:</h3>
+            <p>Glucose: <span id="bound-glucose">0</span>/1</p>
+            <p>ATP: <span id="bound-atp">0</span>/2</p>
+            <p>NAD+: <span id="bound-nad">0</span>/2</p>
+            <p id="ready-message" style="color:green; font-weight:bold;"></p>
+        </div>
+        
+        <div class="stats">
+            <h3>Glycolysis Statistics</h3>
+            <p>Glucose molecules: <span id="glucose-count">0</span></p>
+            <p>ATP molecules: <span id="atp-count">0</span></p>
+            <p>NAD+ molecules: <span id="nad-count">0</span></p>
+            <p>Pyruvate molecules: <span id="pyruvate-count">0</span></p>
+            <p>NADH molecules: <span id="nadh-count">0</span></p>
+            <p>Net ATP produced: <span id="net-atp">0</span></p>
+        </div>
+        
+        <div class="info-panel">
+            <p><strong>Glycolysis Process:</strong> 
+                Reactants: glucose, 2 ATP, 2 NAD+ 
+
+Product: 2 pyruvate, net gain of 2 ATPs (total 4), 2 NADH 
+
+Location: cytoplasm, anaerobic  
+
+Process: 2 ATPs are needed to energize the glucose, making it split into 2 pyruvate, and this phase of separation allows energized electrons to come out and phosphorylate 4 ADPs and 2 NAD+, resulting in a net gain of 2 ATPs, of 2 NADH.   
+            </p>
+            
+        </div>
+    </div>
+
+    <script>
+        // Simulation constants
+        const SIM_WIDTH = 800;
+        const SIM_HEIGHT = 500;
+        const GLYCOLYSIS_BLOB_SIZE = 80;
+        const ATTRACTION_RADIUS = 150;
+        const ATTRACTION_FORCE = 0.1;
+        const REQUIRED_GLUCOSE = 1;
+        const REQUIRED_ATP = 2;
+        const REQUIRED_NAD = 2;
+        
+        // Simulation state
+        let entities = [];
+        let animationId = null;
+        let lastTime = 0;
+        let simSpeed = 5;
+        let showAttractionZones = true;
+        
+        // Statistics
+        let stats = {
+            glucose: 0,
+            atp: 0,
+            nad: 0,
+            pyruvate: 0,
+            nadh: 0,
+            netATP: 0,
+            boundGlucose: 0,
+            boundATP: 0,
+            boundNAD: 0
+        };
+        
+        // Get canvas and context
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Base entity class
+        class Entity {
+            constructor(x, y, radius, color, type) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.type = type;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.attachedTo = null;
+                this.beingProcessed = false;
+                this.processTimer = 0;
+                this.dragging = false;
+                this.dragOffsetX = 0;
+                this.dragOffsetY = 0;
+                this.target = null;
+                this.boundToGlycolysis = false;
+            }
+            
+            update(deltaTime) {
+                if (this.dragging) return;
+                if(this.attachedTo){
+                    this.x = this.attachedTo.x;
+                    this.y = this.attachedTo.y;
+                    return;
+                }
+                
+                if (this.beingProcessed) {
+                    this.processTimer += deltaTime;
+                    if (this.processTimer > 2000) { // 2 seconds processing time
+                        this.beingProcessed = false;
+                        this.processTimer = 0;
+                    }
+                    return;
+                }
+                
+                // If we have a target (glycolysis blob)
+                if (this.target) {
+                    const dx = this.target.x - this.x;
+                    const dy = this.target.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Apply attraction force when within range
+                    if (distance < ATTRACTION_RADIUS) {
+                        const force = ATTRACTION_FORCE * (1 - distance / ATTRACTION_RADIUS);
+                        this.vx += dx / distance * force * (deltaTime / 16);
+                        this.vy += dy / distance * force * (deltaTime / 16);
+                    }
+                }
+                
+                // Basic random movement
+                this.x += this.vx * (deltaTime / 16) * (simSpeed / 5);
+                this.y += this.vy * (deltaTime / 16) * (simSpeed / 5);
+                
+                // Bounce off walls
+                
+                
+                // Random direction changes
+                if (Math.random() < 0.02) {
+                    this.vx += (Math.random() - 0.5) * 0.5;
+                    this.vy += (Math.random() - 0.5) * 0.5;
+                }
+                if (this.x < this.radius || this.x > SIM_WIDTH - this.radius) {
+                    this.vx *= -1;
+                }
+                if (this.y < this.radius || this.y > SIM_HEIGHT - this.radius) {
+                    this.vy *= -1;
+                }
+
+                
+                // Limit speed
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const maxSpeed = 2;
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Draw attraction zone if enabled
+                if (showAttractionZones && (this.type === 'glucose' || this.type === 'atp' || this.type === 'nad') && !this.boundToGlycolysis) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ATTRACTION_RADIUS, 0, Math.PI * 2);
+                    ctx.strokeStyle = this.type === 'glucose' ? 'rgba(46, 139, 87, 0.2)' : 
+                                      this.type === 'atp' ? 'rgba(255, 99, 71, 0.2)' : 'rgba(65, 105, 225, 0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                
+                // Draw the entity
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.boundToGlycolysis ? this.color.replace(')', ', 0.7)').replace('rgb', 'rgba') : this.color;
+                ctx.fill();
+                
+                // Add labels for some molecules
+                if (this.type !== 'glycolysis') {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type.toUpperCase(), 0, 0);
+                }
+                
+                ctx.restore();
+            }
+            
+            isColliding(other) {
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < (this.radius + other.radius);
+            }
+        }
+        
+        // Glycolysis blob class
+        class GlycolysisBlob extends Entity {
+            constructor(x, y) {
+                super(x, y, GLYCOLYSIS_BLOB_SIZE, '#FFA500', 'glycolysis');
+                this.vx = 0;
+                this.vy = 0;
+                this.inputs = [];
+                this.cooldown = Date.now();
+                this.processing = false;
+                this.processTimer = 0;
+            }
+            
+            update(deltaTime) {
+                if (this.processing) {
+                    this.processTimer += deltaTime;
+                    if (this.processTimer > 2000) { // Process for 2 seconds
+                        this.completeProcessing();
+                        this.processing = false;
+                        this.processTimer = 0;
+                    }
+                }
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Draw the glycolysis blob
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.processing ? '#FF8C00' : this.color;
+                ctx.fill();
+                
+                // Add label
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('GLYCOLYSIS', 0, 0);
+                
+                // Draw bound molecules around the blob
+                this.inputs.forEach((input, index) => {
+                    const angle = (index / this.inputs.length) * Math.PI * 2;
+                    const distance = this.radius + input.radius + 5;
+                    ctx.save();
+                    ctx.translate(Math.cos(angle) * distance, Math.sin(angle) * distance);
+                    input.draw(ctx);
+                    ctx.restore();
+                });
+                
+                // If processing, show a progress indicator
+                if (this.processing) {
+                    const progress = this.processTimer / 2000;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius * 0.8, -Math.PI/2, -Math.PI/2 + progress * Math.PI * 2);
+                    ctx.lineWidth = 5;
+                    ctx.strokeStyle = 'white';
+                    ctx.stroke();
+                }
+                
+                ctx.restore();
+            }
+            
+            addInput(entity) {
+                if (!this.processing && !entity.beingProcessed && !entity.boundToGlycolysis && Date.now() - this.cooldown > 2000) {
+                    // Check if we can accept this type of molecule
+                    const currentGlucose = this.inputs.filter(e => e.type === 'glucose').length;
+                    const currentATP = this.inputs.filter(e => e.type === 'atp').length;
+                    const currentNAD = this.inputs.filter(e => e.type === 'nad').length;
+                    
+                    if (entity.type === 'glucose' && currentGlucose >= REQUIRED_GLUCOSE) return;
+                    if (entity.type === 'atp' && currentATP >= REQUIRED_ATP) return;
+                    if (entity.type === 'nad' && currentNAD >= REQUIRED_NAD) return;
+                    
+                    // Add the molecule
+                    this.inputs.push(entity);
+                    entity.boundToGlycolysis = true;
+                    entity.target = null; // Stop attraction once captured
+                    entity.attachedTo = this;
+                    
+                    // Update bound counts
+                    if (entity.type === 'glucose') stats.boundGlucose++;
+                    if (entity.type === 'atp') stats.boundATP++;
+                    if (entity.type === 'nad') stats.boundNAD++;
+                    updateBoundCounts();
+                    
+                    // Check if we have enough inputs to start glycolysis
+                    if (this.inputs.filter(e => e.type === 'glucose').length >= REQUIRED_GLUCOSE &&
+                        this.inputs.filter(e => e.type === 'atp').length >= REQUIRED_ATP &&
+                        this.inputs.filter(e => e.type === 'nad').length >= REQUIRED_NAD) {
+                        this.startProcessing();
+                    }
+                }
+            }
+            
+            startProcessing() {
+                this.processing = true;
+                this.processTimer = 0;
+                document.getElementById('ready-message').textContent = "Processing glycolysis...";
+                
+                // Update statistics
+                stats.glucose -= REQUIRED_GLUCOSE;
+                stats.atp -= REQUIRED_ATP;
+                stats.nad -= REQUIRED_NAD;
+                updateStats();
+            }
+            
+            completeProcessing() {
+                // Remove the processed molecules
+                this.inputs.forEach(entity => {
+                    entities = entities.filter(e => e !== entity);
+                });
+                
+                // Reset bound counts
+                stats.boundGlucose = 0;
+                stats.boundATP = 0;
+                stats.boundNAD = 0;
+                updateBoundCounts();
+                document.getElementById('ready-message').textContent = "";
+                
+                this.inputs = [];
+                
+                // Create products
+                for (let i = 0; i < 2; i++) {
+                    setTimeout(() => {
+                        const pyruvate = new Entity(
+                            this.x + (Math.random() - 0.5) * 300,
+                            this.y + (Math.random() - 0.5) * 300,
+                            10,
+                            '#8A2BE2',
+                            'pyruvate'
+                        );
+                        entities.push(pyruvate);
+                        stats.pyruvate++;
+                        updateStats();
+                    }, i * 300);
+                }
+                
+                setTimeout(() => {
+                    for (let i = 0; i < 4; i++) {
+                        const atp = new Entity(
+                            this.x + (Math.random() - 0.5) * 300,
+                            this.y + (Math.random() - 0.5) * 300,
+                            8,
+                            '#FF6347',
+                            'atp'
+                        );
+                        
+                        entities.push(atp);
+                        stats.atp++;
+                        stats.netATP += i < 2 ? 0 : 1; // Net gain of 2 ATP
+                        updateStats();
+                    }
+                }, 500);
+                
+                setTimeout(() => {
+                    for (let i = 0; i < 2; i++) {
+                        const nadh = new Entity(
+                            this.x + (Math.random() - 0.5) * 300,
+                            this.y + (Math.random() - 0.5) * 300,
+                            8,
+                            '#32CD32',
+                            'nadh'
+                        );
+                        entities.push(nadh);
+                        stats.nadh++;
+                        updateStats();
+                    }
+                }, 800);
+                this.cooldown = Date.now();
+            }
+        }
+        
+        // Initialize simulation
+        function initSimulation() {
+            // Create glycolysis blob in center
+            const glycolysis = new GlycolysisBlob(SIM_WIDTH / 2, SIM_HEIGHT / 2);
+            entities.push(glycolysis);
+            
+            // Start animation loop
+            lastTime = performance.now();
+            animationId = requestAnimationFrame(updateSimulation);
+        }
+        
+        // Add a glucose molecule
+        function addGlucose(x, y) {
+            const glucose = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                12,
+                '#2e8b57',
+                'glucose'
+            );
+            entities.push(glucose);
+            stats.glucose++;
+            updateStats();
+            
+            // Set glycolysis blob as target
+            const glycolysis = entities.find(e => e.type === 'glycolysis');
+            if (glycolysis) glucose.target = glycolysis;
+            
+            return glucose;
+        }
+        
+        // Add an ATP molecule
+        function addATP(x, y) {
+            const atp = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#FF6347',
+                'atp'
+            );
+            entities.push(atp);
+            stats.atp++;
+            updateStats();
+            
+            // Set glycolysis blob as target
+            const glycolysis = entities.find(e => e.type === 'glycolysis');
+            if (glycolysis) atp.target = glycolysis;
+            
+            return atp;
+        }
+        
+        // Add an NAD+ molecule
+        function addNAD(x, y) {
+            const nad = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#4169E1',
+                'nad'
+            );
+            entities.push(nad);
+            stats.nad++;
+            updateStats();
+            
+            // Set glycolysis blob as target
+            const glycolysis = entities.find(e => e.type === 'glycolysis');
+            if (glycolysis) nad.target = glycolysis;
+            
+            return nad;
+        }
+        
+        // Clear all entities
+        function clearAll() {
+            entities = [];
+            stats = {
+                glucose: 0,
+                atp: 0,
+                nad: 0,
+                pyruvate: 0,
+                nadh: 0,
+                netATP: 0,
+                boundGlucose: 0,
+                boundATP: 0,
+                boundNAD: 0
+            };
+            updateStats();
+            updateBoundCounts();
+            document.getElementById('ready-message').textContent = "";
+            initSimulation(); // Re-add glycolysis blob
+        }
+        
+        // Update statistics display
+        function updateStats() {
+            document.getElementById('glucose-count').textContent = stats.glucose;
+            document.getElementById('atp-count').textContent = stats.atp;
+            document.getElementById('nad-count').textContent = stats.nad;
+            document.getElementById('pyruvate-count').textContent = stats.pyruvate;
+            document.getElementById('nadh-count').textContent = stats.nadh;
+            document.getElementById('net-atp').textContent = stats.netATP;
+        }
+        
+        // Update bound counts display
+        function updateBoundCounts() {
+            document.getElementById('bound-glucose').textContent = stats.boundGlucose;
+            document.getElementById('bound-atp').textContent = stats.boundATP;
+            document.getElementById('bound-nad').textContent = stats.boundNAD;
+        }
+        
+        // Update simulation
+        function updateSimulation(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, SIM_WIDTH, SIM_HEIGHT);
+            
+            // Update and draw all entities
+            entities.forEach(entity => {
+                entity.update(deltaTime);
+                if (!entity.boundToGlycolysis) {
+                    entity.draw(ctx);
+                }else{
+                    entity.x = 1000;
+                    entity.y = 1000;
+                }
+            });
+            
+            // Check for entities entering glycolysis blob
+            const glycolysis = entities.find(e => e.type === 'glycolysis');
+            if (glycolysis) {
+                // Draw glycolysis blob last so it's on top
+                glycolysis.draw(ctx);
+                
+                entities.forEach(entity => {
+                    if (entity !== glycolysis && entity.isColliding(glycolysis) && 
+                        (entity.type === 'glucose' || entity.type === 'atp' || entity.type === 'nad') &&
+                        !entity.beingProcessed && !glycolysis.processing && !entity.boundToGlycolysis) {
+                        glycolysis.addInput(entity);
+                    }
+                });
+            }
+            
+            // Continue animation loop
+            animationId = requestAnimationFrame(updateSimulation);
+        }
+        
+        // Event listeners for controls
+        document.getElementById('add-glucose').addEventListener('click', () => {
+            addGlucose();
+        });
+        
+        document.getElementById('add-atp').addEventListener('click', () => {
+            addATP();
+        });
+        
+        document.getElementById('add-nad').addEventListener('click', () => {
+            addNAD();
+        });
+        
+        document.getElementById('clear-all').addEventListener('click', () => {
+            clearAll();
+        });
+        
+        document.getElementById('sim-speed').addEventListener('input', (e) => {
+            simSpeed = parseInt(e.target.value);
+        });
+        
+        document.getElementById('show-attraction').addEventListener('change', (e) => {
+            showAttractionZones = e.target.checked;
+        });
+        
+        // Drag and drop functionality
+        let draggedEntity = null;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            for (let i = entities.length - 1; i >= 0; i--) {
+                const entity = entities[i];
+                const dx = x - entity.x;
+                const dy = y - entity.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < entity.radius && entity.type !== 'glycolysis' && !entity.boundToGlycolysis) {
+                    draggedEntity = entity;
+                    draggedEntity.dragging = true;
+                    draggedEntity.dragOffsetX = dx;
+                    draggedEntity.dragOffsetY = dy;
+                    draggedEntity.target = null; // Disable attraction while dragging
+                    break;
+                }
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggedEntity) {
+                const rect = canvas.getBoundingClientRect();
+                draggedEntity.x = e.clientX - rect.left - draggedEntity.dragOffsetX;
+                draggedEntity.y = e.clientY - rect.top - draggedEntity.dragOffsetY;
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            if (draggedEntity) {
+                draggedEntity.dragging = false;
+                // Re-enable attraction to glycolysis blob
+                const glycolysis = entities.find(e => e.type === 'glycolysis');
+                if (glycolysis) draggedEntity.target = glycolysis;
+                draggedEntity = null;
+            }
+        });
+        
+        // Start the simulation
+        initSimulation();
+    </script>
+</body>
+</html>

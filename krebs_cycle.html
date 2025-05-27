@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krebs Cycle Blob Simulation with Product Counter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #simulation-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #canvas-container {
+            border: 1px solid #ccc;
+            margin: 0 auto;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .info-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Krebs Cycle Simulation with Central Blob</h1>
+    
+    <div id="simulation-container">
+        <div id="controls">
+            <button id="add-acetyl-coa">Add Acetyl-CoA</button>
+            <button id="add-nad">Add NAD+</button>
+            <button id="add-fad">Add FAD</button>
+            <button id="add-adp">Add ADP</button>
+            <div>
+                <label for="sim-speed">Simulation Speed:</label>
+                <input type="range" id="sim-speed" min="1" max="10" value="5">
+            </div>
+            <div>
+                <label for="show-attraction">Show Attraction Zones:</label>
+                <input type="checkbox" id="show-attraction" checked>
+            </div>
+        </div>
+        
+        <div id="canvas-container">
+            <canvas id="simulation-canvas" width="800" height="500"></canvas>
+        </div>
+        
+        <div class="info-panel">
+            <p><strong>How it works:</strong> <br>The central blob (gray when inactive, green when active) represents the Krebs cycle. It attracts reactants: 1 Acetyl-CoA (blue), 3 NAD+ (purple), 1 FAD (orange), and 1 ADP (green). Once all reactants are collected, the blob activates and releases products: 2 CO2 (gray), 3 NADH (dark purple), 1 FADH2 (dark orange), 1 ATP (dark green), and 1 CoA (yellow). The top-left corner shows the total products produced. Click the canvas to add a random reactant.</br><br>
+
+Note: the input to the Krebs cycle is Acetyl CoA, which is produced earlier in pyruvate oxidation from 1 pyruvate, but that is not shown here.</br></p>
+        </div>
+    </div>
+
+    <script>
+        // Simulation constants
+        const SIM_WIDTH = 800;
+        const SIM_HEIGHT = 500;
+        const ATTRACTION_RADIUS = 100;
+        const ATTRACTION_FORCE = 0.05;
+        
+        // Simulation state
+        let entities = [];
+        let krebsBlob = null;
+        let animationId = null;
+        let lastTime = 0;
+        let simSpeed = 5;
+        let showAttractionZones = true;
+        
+        // Get canvas and context
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Base entity class
+        class Entity {
+            constructor(x, y, radius, color, type, attractionType = null) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.type = type;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.rotation = 0;
+                this.target = null;
+                this.attractionType = attractionType;
+                this.targetedBy = null;
+            }
+            
+            update(deltaTime) {
+                if (this.target && this.target.targetedBy === this) {
+                    const dx = this.target.x - this.x;
+                    const dy = this.target.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < ATTRACTION_RADIUS) {
+                        const force = ATTRACTION_FORCE * (1 - distance / ATTRACTION_RADIUS);
+                        this.vx += dx / distance * force * (deltaTime / 16);
+                        this.vy += dy / distance * force * (deltaTime / 16);
+                    }
+                }
+                
+                this.x += this.vx * (deltaTime / 16) * (simSpeed / 5);
+                this.y += this.vy * (deltaTime / 16) * (simSpeed / 5);
+                
+                // Bounce off walls
+                if (this.x < this.radius || this.x > SIM_WIDTH - this.radius) {
+                    this.vx *= -1;
+                }
+                if (this.y < this.radius || this.y > SIM_HEIGHT - this.radius) {
+                    this.vy *= -1;
+                }
+                
+                // Random direction changes
+                if (Math.random() < 0.02) {
+                    this.vx += (Math.random() - 0.5) * 0.5;
+                    this.vy += (Math.random() - 0.5) * 0.5;
+                }
+                
+                // Limit speed
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const maxSpeed = 2;
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+                
+                this.rotation += (this.vx * 0.1) * (deltaTime / 16);
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                if (showAttractionZones && this.attractionType) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ATTRACTION_RADIUS, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(${this.color.slice(1,3)},${this.color.slice(3,5)},${this.color.slice(5,7)},0.3)`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // Visual distinction for molecule types
+                if (this.type === 'pyruvate') {
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius, 0);
+                    ctx.lineTo(this.radius, 0);
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (this.type === 'acetyl-coa') {
+                    ctx.beginPath();
+                    ctx.rect(-this.radius/2, -this.radius/2, this.radius, this.radius);
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                } else if (this.type === 'coa') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius/2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'white';
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            }
+            
+            isColliding(other) {
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < (this.radius + other.radius);
+            }
+        }
+        
+        // Krebs cycle blob class
+        class KrebsBlob {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 30;
+                this.color = '#808080'; // Gray when inactive
+                this.type = 'krebs-blob';
+                this.active = false;
+                this.reactants = {
+                    pyruvate: 0,
+                    'acetyl-coa': 0,
+                    nad: 0,
+                    fad: 0,
+                    adp: 0
+                };
+                this.requiredReactants = {
+                    pyruvate: 1,
+                    'acetyl-coa': 1,
+                    nad: 3,
+                    fad: 1,
+                    adp: 1
+                };
+                this.productCounts = {
+                    co2: 0,
+                    nadh: 0,
+                    fadh2: 0,
+                    atp: 0,
+                    coa: 0
+                };
+                this.targetedBy = null;
+            }
+            
+            update() {
+                // Check if all reactants are collected
+                if (
+                    this.reactants['acetyl-coa'] >= this.requiredReactants['acetyl-coa'] &&
+                    this.reactants.nad >= this.requiredReactants.nad &&
+                    this.reactants.fad >= this.requiredReactants.fad &&
+                    this.reactants.adp >= this.requiredReactants.adp) {
+                    this.active = true;
+                    this.color = '#32cd32'; // Green when active
+                    this.produceProducts();
+                    this.resetReactants();
+                }
+            }
+            
+            produceProducts() {
+                // Produce 2 CO2, 3 NADH, 1 FADH2, 1 ATP, 1 CoA
+                for (let i = 0; i < 2; i++) {
+                    addCO2(this.x + (Math.random() - 0.5) * 50, this.y + (Math.random() - 0.5) * 50);
+                    this.productCounts.co2++;
+                }
+                for (let i = 0; i < 3; i++) {
+                    addNADH(this.x + (Math.random() - 0.5) * 50, this.y + (Math.random() - 0.5) * 50);
+                    this.productCounts.nadh++;
+                }
+                addFADH2(this.x + (Math.random() - 0.5) * 50, this.y + (Math.random() - 0.5) * 50);
+                this.productCounts.fadh2++;
+                addATP(this.x + (Math.random() - 0.5) * 50, this.y + (Math.random() - 0.5) * 50);
+                this.productCounts.atp++;
+                addCoA(this.x + (Math.random() - 0.5) * 50, this.y + (Math.random() - 0.5) * 50);
+                this.productCounts.coa++;
+            }
+            
+            resetReactants() {
+                this.reactants = {
+                    pyruvate: 0,
+                    'acetyl-coa': 0,
+                    nad: 0,
+                    fad: 0,
+                    adp: 0
+                };
+                this.active = false;
+                this.color = '#808080';
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                if (showAttractionZones) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, ATTRACTION_RADIUS, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(128,128,128,0.3)`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // Display reactant counts
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+
+                ctx.fillText(`AcCoA: ${this.reactants['acetyl-coa']}/${this.requiredReactants['acetyl-coa']}`, 0, -10);
+                ctx.fillText(`NAD+: ${this.reactants.nad}/${this.requiredReactants.nad}`, 0, 0);
+                ctx.fillText(`FAD: ${this.reactants.fad}/${this.requiredReactants.fad}`, 0, 10);
+                ctx.fillText(`ADP: ${this.reactants.adp}/${this.requiredReactants.adp}`, 0, 20);
+                
+                ctx.restore();
+            }
+            
+            isColliding(other) {
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance < (this.radius + other.radius);
+            }
+        }
+        
+        // Initialize simulation
+        function initSimulation() {
+            // Place Krebs blob at center
+            krebsBlob = new KrebsBlob(SIM_WIDTH / 2, SIM_HEIGHT / 2);
+            // Add initial reactants
+
+            addAcetylCoA(SIM_WIDTH * 3 / 4, SIM_HEIGHT / 4);
+            addNAD(SIM_WIDTH / 2, SIM_HEIGHT / 3);
+            addNAD(SIM_WIDTH / 3, SIM_HEIGHT * 2 / 3);
+            addFAD(SIM_WIDTH * 2 / 3, SIM_HEIGHT / 3);
+            addADP(SIM_WIDTH / 2, SIM_HEIGHT * 2 / 3);
+            
+            lastTime = performance.now();
+            animationId = requestAnimationFrame(updateSimulation);
+        }
+        
+        // Molecule creation functions
+        function addPyruvate(x, y) {
+            const pyruvate = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                12,
+                '#ff4500',
+                'pyruvate',
+                'krebs-blob'
+            );
+            entities.push(pyruvate);
+            return pyruvate;
+        }
+        
+        function addAcetylCoA(x, y) {
+            const acetylCoA = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                10,
+                '#1e90ff',
+                'acetyl-coa',
+                'krebs-blob'
+            );
+            acetylCoA.attractionType = 'krebs-blob';
+            entities.push(acetylCoA);
+            return acetylCoA;
+        }
+        
+        function addCoA(x, y) {
+            const coa = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#ffd700',
+                'coa'
+            );
+            entities.push(coa);
+            return coa;
+        }
+        
+        function addNAD(x, y) {
+            const nad = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#800080',
+                'nad',
+                'krebs-blob'
+            );
+            nad.attractionType = 'krebs-blob';
+            entities.push(nad);
+            return nad;
+        }
+        
+        function addNADH(x, y) {
+            const nadh = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#4b0082',
+                'nadh'
+            );
+            entities.push(nadh);
+            return nadh;
+        }
+        
+        function addFAD(x, y) {
+            const fad = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#ffa500',
+                'fad',
+                'krebs-blob'
+            );
+            fad.attractionType = 'krebs-blob';
+            entities.push(fad);
+            return fad;
+        }
+        
+        function addFADH2(x, y) {
+            const fadh2 = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#ff8c00',
+                'fadh2'
+            );
+            entities.push(fadh2);
+            return fadh2;
+        }
+        
+        function addADP(x, y) {
+            const adp = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#2e8b57',
+                'adp',
+                'krebs-blob'
+            );
+            adp.attractionType = 'krebs-blob';
+            entities.push(adp);
+            return adp;
+        }
+        
+        function addATP(x, y) {
+            const atp = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                8,
+                '#228b22',
+                'atp'
+            );
+            entities.push(atp);
+            return atp;
+        }
+        
+        function addCO2(x, y) {
+            const co2 = new Entity(
+                x || Math.random() * SIM_WIDTH,
+                y || Math.random() * SIM_HEIGHT,
+                6,
+                '#808080',
+                'co2'
+            );
+            entities.push(co2);
+            return co2;
+        }
+        
+        function updateSimulation(currentTime) {
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            ctx.clearRect(0, 0, SIM_WIDTH, SIM_HEIGHT);
+            
+            // Reset targeting
+            entities.forEach(entity => {
+                if (entity.targetedBy) {
+                    entity.targetedBy = null;
+                }
+            });
+            if (krebsBlob) {
+                krebsBlob.targetedBy = null;
+            }
+            
+            // Set blob as target for all reactants
+            entities.forEach(entity => {
+                if (entity.attractionType === 'krebs-blob') {
+                    entity.target = krebsBlob;
+                    krebsBlob.targetedBy = entity;
+                } else {
+                    entity.target = null;
+                }
+            });
+            
+            // Update and draw entities
+            entities.forEach(entity => {
+                entity.update(deltaTime);
+                entity.draw(ctx);
+            });
+            
+            // Update and draw blob
+            if (krebsBlob) {
+                krebsBlob.update();
+                krebsBlob.draw(ctx);
+                
+                // Display product counts in top-left corner
+                ctx.fillStyle = 'black';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`Products Produced:`, 10, 20);
+                ctx.fillText(`CO2: ${krebsBlob.productCounts.co2}`, 10, 40);
+                ctx.fillText(`NADH: ${krebsBlob.productCounts.nadh}`, 10, 60);
+                ctx.fillText(`FADH2: ${krebsBlob.productCounts.fadh2}`, 10, 80);
+                ctx.fillText(`ATP: ${krebsBlob.productCounts.atp}`, 10, 100);
+            }
+            
+            // Check collisions with blob
+            if (krebsBlob) {
+                for (let i = entities.length - 1; i >= 0; i--) {
+                    const entity = entities[i];
+                    if (krebsBlob.isColliding(entity) && krebsBlob.reactants[entity.type] !== undefined) {
+                        krebsBlob.reactants[entity.type]++;
+                        entities.splice(i, 1); // Remove collected reactant
+                    }
+                }
+            }
+            
+            animationId = requestAnimationFrame(updateSimulation);
+        }
+        
+
+        
+        document.getElementById('add-acetyl-coa').addEventListener('click', () => {
+            addAcetylCoA();
+        });
+        
+        document.getElementById('add-nad').addEventListener('click', () => {
+            addNAD();
+        });
+        
+        document.getElementById('add-fad').addEventListener('click', () => {
+            addFAD();
+        });
+        
+        document.getElementById('add-adp').addEventListener('click', () => {
+            addADP();
+        });
+        
+        document.getElementById('sim-speed').addEventListener('input', (e) => {
+            simSpeed = parseInt(e.target.value);
+        });
+        
+        document.getElementById('show-attraction').addEventListener('change', (e) => {
+            showAttractionZones = e.target.checked;
+        });
+        
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const rand = Math.random();
+            if (rand < 0.2) {
+                addPyruvate(x, y);
+            } else if (rand < 0.4) {
+                addAcetylCoA(x, y);
+            } else if (rand < 0.7) {
+                addNAD(x, y);
+            } else if (rand < 0.85) {
+                addFAD(x, y);
+            } else {
+                addADP(x, y);
+            }
+        });
+        
+        initSimulation();
+    </script>
+</body>
+</html>

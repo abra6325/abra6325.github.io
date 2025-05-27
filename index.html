@@ -1,23 +1,81 @@
 <!DOCTYPE html>
-<body>
-  <script>
-    window.onload = () =>{
-      did = localStorage.getItem("AnswerdForm");
-      body = document.getElementById("ass");
-      if(did==null){
-        console.log("dick")
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cellular Respiration Interactive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .image-map-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f3f4f6;
+            position: relative;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        p {
+            font-size: 1.25rem;
+            color: #4b5563;
+        }
+        .label {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 10;
+        }
+        .glycolysis-label {
+            left: 100px; /* Adjusted positioning */
+            top: 600px;   /* Adjusted positioning */
+        }
+        .krebs-label {
+            left: 930px; /* Adjusted positioning */
+            top: 570px;  /* Adjusted positioning */
+        }
+        .etc-label {
+            left: 870px; /* Adjusted positioning */
+            top: 300px;   /* Adjusted positioning */
+        }
+        .mitochondrion-label {
+            left: 870px; /* Adjusted positioning */
+            top: 450px;  /* Adjusted positioning */
+        }
+    </style>
+</head>
+<body class="image-map-container">
+    <div class="text-center">
+        <h1 class="mb-4">Explore Cellular Respiration</h1>
+        <p class="mb-6">Click on different parts of the cell to learn about the stages of cellular respiration.</p>
+        <img src="img.webp" alt="Cell Diagram" usemap="#cell-map" class="rounded-lg shadow-lg">
         
-        body.innerHTML='<iframe width="640px" height="480px" src="https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAANAASJtVeRUQksyVEdVTTA2Rzk3NkFVUFE1Q0w0STBTVC4u&embed=true" frameborder="0" marginwidth="0" marginheight="0" style="border: none; max-width:100%; max-height:100vh" allowfullscreen webkitallowfullscreen mozallowfullscreen msallowfullscreen> </iframe>';
-        localStorage.setItem("AnswerdForm","yes");
-
-      }else{
-        body.innerHTML="<p>YOU HAVE ANSWERED THIS FORM ALREADY</p>"
-      }
-    }
-  </script>
-  <div id="ass">
-
-  </div>
-
-
+        <!-- Labels for clickable areas -->
+        <div class="label glycolysis-label" title="Glycolysis">Glycolysis</div>
+        <div class="label krebs-label" title="Krebs Cycle">Krebs Cycle</div>
+        <div class="label etc-label" title="Electron Transport Chain">Electron Transport Chain</div>
+        <div class="label mitochondrion-label" title="Mitochondrion Structure">Mitochondrion</div>
+        
+        <map name="cell-map">
+            <!-- Glycolysis (assumed in cytoplasm) -->
+            <area shape="rect" coords="100,600,150,150" href="glycolysis.html" alt="Glycolysis" title="Glycolysis">
+            <!-- Krebs Cycle (assumed in mitochondrion matrix) -->
+            <area shape="rect" coords="960,500,300,200" href="krebs_cycle.html" alt="Krebs Cycle" title="Krebs Cycle">
+            <!-- Electron Transport Chain (assumed in inner mitochondrial membrane) -->
+            <area shape="rect" coords="900,300,450,150" href="etc.html" alt="Electron Transport Chain" title="Electron Transport Chain">
+            <!-- Mitochondrion Structure -->
+            <area shape="circle" coords="900,900,50" alt="Mitochondrion" title="Mitochondrion Structure">
+        </map>
+    </div>
 </body>
+</html>

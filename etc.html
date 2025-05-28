@@ -50,6 +50,7 @@
     
     <div id="simulation-container">
         <div id="controls">
+<button href="index.html" id = "return">Return</button>
             <button id="add-nadh">Add NADH</button>
             <button id="add-fadh2">Add FADH2</button>
             <button id="add-oxygen">Add Oxygen</button>
@@ -612,6 +613,9 @@ return array.filter(item => item !== itemToRemove);
         document.getElementById('add-oxygen').addEventListener('click', () => {
             addOxygen();
         });
+        document.getElementById('return').addEventListener('click', () => {
+			window.location = "index.html";
+});
         
         
         

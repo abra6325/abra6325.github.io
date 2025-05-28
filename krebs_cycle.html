@@ -44,6 +44,7 @@
     
     <div id="simulation-container">
         <div id="controls">
+				<button href="index.html" id = "return">Return</button>
             <button id="add-acetyl-coa">Add Acetyl-CoA</button>
             <button id="add-nad">Add NAD+</button>
             <button id="add-fad">Add FAD</button>
@@ -527,7 +528,9 @@ Note: the input to the Krebs cycle is Acetyl CoA, which is produced earlier in p
         document.getElementById('add-nad').addEventListener('click', () => {
             addNAD();
         });
-        
+        document.getElementById('return').addEventListener('click', () => {
+			window.location = "index.html";
+});
         document.getElementById('add-fad').addEventListener('click', () => {
             addFAD();
         });
@@ -544,24 +547,7 @@ Note: the input to the Krebs cycle is Acetyl CoA, which is produced earlier in p
             showAttractionZones = e.target.checked;
         });
         
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const rand = Math.random();
-            if (rand < 0.2) {
-                addPyruvate(x, y);
-            } else if (rand < 0.4) {
-                addAcetylCoA(x, y);
-            } else if (rand < 0.7) {
-                addNAD(x, y);
-            } else if (rand < 0.85) {
-                addFAD(x, y);
-            } else {
-                addADP(x, y);
-            }
-        });
-        
+       
         initSimulation();
     </script>
 </body>

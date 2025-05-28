@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -15,6 +54,11 @@
             position: relative;
             width: 100%;
             height: 100%;
+        }
+        .image-wrapper {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
         }
         img {
             max-width: 100%;
@@ -40,21 +84,55 @@
             text-align: center;
             z-index: 10;
         }
+        .clickable-area {
+            position: absolute;
+            cursor: pointer;
+            z-index: 5;
+            transition: background-color 0.3s;
+        }
+        .clickable-area:hover {
+            background-color: rgba(0, 0, 255, 0.1);
+        }
         .glycolysis-label {
-            left: 8.33%; /* ~100px / 1200px */
-            top: 75%;   /* ~600px / 800px */
+            left: 5.43%; /* 100/1840 */
+            top: 48.90%; /* 600/1227 */
         }
         .krebs-label {
-            left: 77.5%; /* ~930px / 1200px */
-            top: 71.25%; /* ~570px / 800px */
+            left: 70.54%; /* 930/1840 */
+            top: 46.45%; /* 570/1227 */
         }
         .etc-label {
-            left: 72.5%; /* ~870px / 1200px */
-            top: 37.5%;  /* ~300px / 800px */
+            left: 70.28%; /* 870/1840 */
+            top: 24.45%; /* 300/1227 */
         }
         .mitochondrion-label {
-            left: 72.5%; /* ~870px / 1200px */
-            top: 56.25%; /* ~450px / 800px */
+            left: 60.28%; /* 870/1840 */
+            top: 36.67%; /* 450/1227 */
+        }
+        .glycolysis-area {
+            left: 7.43%; /* 100/1840 */
+            top: 30.22%; /* 150/1227 */
+            width: 7.72%; /* (150-100)/1840 */
+            height: 36.68%; /* (600-150)/1227 */
+        }
+        .krebs-area {
+            left: 70.17%; /* 960/1840 */
+            top: 40.75%; /* 500/1227 */
+            width: 16.30%; /* (1260-960)/1840 */
+            height: 16.30%; /* (700-500)/1227 */
+        }
+        .etc-area {
+            left: 70.91%; /* 900/1840 */
+            top: 24.45%; /* 300/1227 */
+            width: 24.46%; /* (1350-900)/1840 */
+            height: 12.22%; /* (450-300)/1227 */
+        }
+        .mitochondrion-area {
+            left: 46.20%; /* (900-50)/1840 */
+            top: 69.28%; /* (900-50)/1227 */
+            width: 5.43%; /* 100/1840 */
+            height: 8.15%; /* 100/1227 */
+            border-radius: 50%;
         }
     </style>
 </head>
@@ -62,24 +140,21 @@
     <div class="text-center">
         <h1 class="mb-4">Explore Cellular Respiration</h1>
         <p class="mb-6">Click on different parts of the cell to learn about the stages of cellular respiration.</p>
-        <img src="img.webp" alt="Cell Diagram" usemap="#cell-map" class="rounded-lg shadow-lg">
-        
-        <!-- Labels for clickable areas -->
-        <div class="label glycolysis-label" title="Glycolysis">Glycolysis</div>
-        <div class="label krebs-label" title="Krebs Cycle">Krebs Cycle</div>
-        <div class="label etc-label" title="Electron Transport Chain">Electron Transport Chain</div>
-        <div class="label mitochondrion-label" title="Mitochondrion Structure">Mitochondrion</div>
-        
-        <map name="cell-map">
-            <!-- Glycolysis (assumed in cytoplasm) -->
-            <area shape="rect" coords="8.33%,75%,12.5%,18.75%" href="glycolysis.html" alt="Glycolysis" title="Glycolysis">
-            <!-- Krebs Cycle (assumed in mitochondrion matrix) -->
-            <area shape="rect" coords="80%,62.5%,25%,25%" href="krebs_cycle.html" alt="Krebs Cycle" title="Krebs Cycle">
-            <!-- Electron Transport Chain (assumed in inner mitochondrial membrane) -->
-            <area shape="rect" coords="75%,37.5%,37.5%,18.75%" href="etc.html" alt="Electron Transport Chain" title="Electron Transport Chain">
-            <!-- Mitochondrion Structure -->
-            <area shape="circle" coords="75%,112.5%,4.17%" alt="Mitochondrion" title="Mitochondrion Structure">
-        </map>
+        <div class="image-wrapper">
+            <img src="img.webp" alt="Cell Diagram" class="rounded-lg shadow-lg">
+            
+            <!-- Labels for clickable areas -->
+            <div class="label glycolysis-label" title="Glycolysis">Glycolysis</div>
+            <div class="label krebs-label" title="Krebs Cycle">Krebs Cycle</div>
+            <div class="label etc-label" title="Electron Transport Chain">Electron Transport Chain</div>
+            <div class="label mitochondrion-label" title="Mitochondrion Structure">Mitochondrion</div>
+            
+            <!-- Clickable areas -->
+            <a href="glycolysis.html"><div class="clickable-area glycolysis-area" title="Glycolysis"></div></a>
+            <a href="krebs_cycle.html"><div class="clickable-area krebs-area" title="Krebs Cycle"></div></a>
+            <a href="etc.html"><div class="clickable-area etc-area" title="Electron Transport Chain"></div></a>
+            <a href="#"><div class="clickable-area mitochondrion-area" title="Mitochondrion Structure"></div></a>
+        </div>
     </div>
 </body>
 </html>

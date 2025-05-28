@@ -13,10 +13,14 @@
             min-height: 100vh;
             background-color: #f3f4f6;
             position: relative;
+            width: 100%;
+            height: 100%;
         }
         img {
             max-width: 100%;
             height: auto;
+            display: block;
+            margin: 0 auto;
         }
         h1 {
             font-size: 2.5rem;
@@ -37,20 +41,20 @@
             z-index: 10;
         }
         .glycolysis-label {
-            left: 100px; /* Adjusted positioning */
-            top: 600px;   /* Adjusted positioning */
+            left: 8.33%; /* ~100px / 1200px */
+            top: 75%;   /* ~600px / 800px */
         }
         .krebs-label {
-            left: 930px; /* Adjusted positioning */
-            top: 570px;  /* Adjusted positioning */
+            left: 77.5%; /* ~930px / 1200px */
+            top: 71.25%; /* ~570px / 800px */
         }
         .etc-label {
-            left: 870px; /* Adjusted positioning */
-            top: 300px;   /* Adjusted positioning */
+            left: 72.5%; /* ~870px / 1200px */
+            top: 37.5%;  /* ~300px / 800px */
         }
         .mitochondrion-label {
-            left: 870px; /* Adjusted positioning */
-            top: 450px;  /* Adjusted positioning */
+            left: 72.5%; /* ~870px / 1200px */
+            top: 56.25%; /* ~450px / 800px */
         }
     </style>
 </head>
@@ -68,13 +72,13 @@
         
         <map name="cell-map">
             <!-- Glycolysis (assumed in cytoplasm) -->
-            <area shape="rect" coords="100,600,150,150" href="glycolysis.html" alt="Glycolysis" title="Glycolysis">
+            <area shape="rect" coords="8.33%,75%,12.5%,18.75%" href="glycolysis.html" alt="Glycolysis" title="Glycolysis">
             <!-- Krebs Cycle (assumed in mitochondrion matrix) -->
-            <area shape="rect" coords="960,500,300,200" href="krebs_cycle.html" alt="Krebs Cycle" title="Krebs Cycle">
+            <area shape="rect" coords="80%,62.5%,25%,25%" href="krebs_cycle.html" alt="Krebs Cycle" title="Krebs Cycle">
             <!-- Electron Transport Chain (assumed in inner mitochondrial membrane) -->
-            <area shape="rect" coords="900,300,450,150" href="etc.html" alt="Electron Transport Chain" title="Electron Transport Chain">
+            <area shape="rect" coords="75%,37.5%,37.5%,18.75%" href="etc.html" alt="Electron Transport Chain" title="Electron Transport Chain">
             <!-- Mitochondrion Structure -->
-            <area shape="circle" coords="900,900,50" alt="Mitochondrion" title="Mitochondrion Structure">
+            <area shape="circle" coords="75%,112.5%,4.17%" alt="Mitochondrion" title="Mitochondrion Structure">
         </map>
     </div>
 </body>

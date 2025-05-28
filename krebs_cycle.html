@@ -37,6 +37,29 @@
             background-color: #f0f8ff;
             border-radius: 5px;
         }
+	    .question {
+            margin-bottom: 20px;
+        }
+        .question h3 {
+            margin-bottom: 10px;
+        }
+        .option {
+            margin: 5px 0;
+        }
+        #submitBtn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #submitBtn:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -68,6 +91,57 @@
 
 Note: the input to the Krebs cycle is Acetyl CoA, which is produced earlier in pyruvate oxidation from 1 pyruvate, but that is not shown here.</br></p>
         </div>
+	    <form id="krebsQuiz">
+        <div class="question">
+            <h3>1. Around how many ATP were being produced through the Krebs cycle from both pyruvates?</h3>
+            <div class="option">
+                <input type="radio" name="q1" value="A"> A: 2
+            </div>
+            <div class="option">
+                <input type="radio" name="q1" value="B"> B: 15
+            </div>
+            <div class="option">
+                <input type="radio" name="q1" value="C"> C: 32
+            </div>
+            <div class="option">
+                <input type="radio" name="q1" value="D"> D: 28
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>2. What is the primary purpose of the Krebs cycle?</h3>
+            <div class="option">
+                <input type="radio" name="q2" value="A"> A: To produce glucose from carbon dioxide
+            </div>
+            <div class="option">
+                <input type="radio" name="q2" value="B"> B: To break down pyruvate into ethanol
+            </div>
+            <div class="option">
+                <input type="radio" name="q2" value="C"> C: To generate high-energy electron carriers like NADH and FADH₂
+            </div>
+            <div class="option">
+                <input type="radio" name="q2" value="D"> D: To convert oxygen into carbon dioxide
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>3. Which molecule enters the Krebs cycle by combining with oxaloacetate to form citrate?</h3>
+            <div class="option">
+                <input type="radio" name="q3" value="A"> A: Acetyl-CoA
+            </div>
+            <div class="option">
+                <input type="radio" name="q3" value="B"> B: Pyruvate
+            </div>
+            <div class="option">
+                <input type="radio" name="q3" value="C"> C: ATP
+            </div>
+            <div class="option">
+                <input type="radio" name="q3" value="D"> D: Glucose
+            </div>
+        </div>
+
+        <button type="button" id="submitBtn">Submit Answers</button>
+    </form>
     </div>
 
     <script>
@@ -545,6 +619,40 @@ Note: the input to the Krebs cycle is Acetyl CoA, which is produced earlier in p
         
         document.getElementById('show-attraction').addEventListener('change', (e) => {
             showAttractionZones = e.target.checked;
+        });
+	document.getElementById('submitBtn').addEventListener('click', function() {
+            const correctAnswers = {
+                q1: 'A',
+                q2: 'C',
+                q3: 'A'
+            };
+            const answerDescriptions = {
+                q1: 'A: 2',
+                q2: 'C: To generate high-energy electron carriers like NADH and FADH₂',
+                q3: 'A: Acetyl-CoA'
+            };
+            let score = 0;
+            let resultText = '';
+
+            // Check each question
+            for (let i = 1; i <= 3; i++) {
+                const question = `q${i}`;
+                const selected = document.querySelector(`input[name="${question}"]:checked`);
+                if (selected) {
+                    if (selected.value === correctAnswers[question]) {
+                        score++;
+                        resultText += `Question ${i}: Correct<br>`;
+                    } else {
+                        resultText += `Question ${i}: Incorrect, the correct answer is ${answerDescriptions[question]}<br>`;
+                    }
+                } else {
+                    resultText += `Question ${i}: No answer selected, the correct answer is ${answerDescriptions[question]}<br>`;
+                }
+            }
+
+            // Display score
+            resultText += `<br>Your score: ${score}/3`;
+            document.getElementById('result').innerHTML = resultText;
         });
         
        

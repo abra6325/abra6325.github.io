@@ -117,13 +117,13 @@
         </div>
         
         <div class="info-panel">
-            <p><strong>Glycolysis Process:</strong> 
-                Reactants: glucose, 2 ATP, 2 NAD+ 
-
+            <p><strong>Glycolysis Process:</strong> <br>
+                Reactants: glucose, 2 ATP, 2 NAD+ </br>
+<br>
 Product: 2 pyruvate, net gain of 2 ATPs (total 4), 2 NADH 
-
+	</br><br>
 Location: cytoplasm, anaerobic  
-
+	</br>
 Process: 2 ATPs are needed to energize the glucose, making it split into 2 pyruvate, and this phase of separation allows energized electrons to come out and phosphorylate 4 ADPs and 2 NAD+, resulting in a net gain of 2 ATPs, of 2 NADH.   
             </p>
             
@@ -131,9 +131,9 @@ Process: 2 ATPs are needed to energize the glucose, making it split into 2 pyruv
 
 	<form id="glycolysisQuiz">
         <div class="question">
-            <h3>1. What are all the different types of glycolysis (with and without oxygen)?</h3>
+            <h3>1. What are all the different types of pathways after glycolysis?</h3>
             <div class="option">
-                <input type="radio" name="q1" value="A"> A: lactic acid fermentation, glycolysis, alcoholic fermentation
+                <input type="radio" name="q1" value="A"> A: lactic acid fermentation, krebs cycle, alcoholic fermentation
             </div>
             <div class="option">
                 <input type="radio" name="q1" value="B"> B: Creb cycle, Electron transport chain, glycolysis
@@ -685,12 +685,12 @@ Process: 2 ATPs are needed to energize the glucose, making it split into 2 pyruv
         });
 	    document.getElementById('submitBtn').addEventListener('click', function() {
             const correctAnswers = {
-                q1: 'C',
+                q1: 'A',
                 q2: 'D',
                 q3: 'B'
             };
             const answerDescriptions = {
-                q1: 'C: glycolysis, fermentation',
+                q1: 'A: lactic acid fermentation, krebs cycle, alcoholic fermentation',
                 q2: 'D: 2 ATP, 2 NADH, 2 pyruvate',
                 q3: 'B: 2 ATP, glucose, 2 NAD+'
             };
